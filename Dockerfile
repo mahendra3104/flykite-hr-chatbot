@@ -13,9 +13,9 @@ WORKDIR $HOME/app
 # Copy application files and data from the repository root to the container's /home/user/app
 # Assuming the build context (Hugging Face Space root) contains:
 # src/streamlit_app.py, requirements.txt, data/Dataset - Flykite Airlines_ HRP.pdf
-COPY --chown=user src ./src
+COPY --chown=user src/ ./src/
 COPY --chown=user requirements.txt .
-COPY --chown=user data ./data
+COPY --chown=user data/ ./data/
 
 # Install Python dependencies listed in requirements.txt
 RUN pip3 install -r requirements.txt
