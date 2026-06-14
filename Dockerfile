@@ -11,12 +11,14 @@ ENV HOME=/home/user \
 WORKDIR $HOME/app
 
 # Copy application files from the repository root to the container's /home/user/app
-# Assuming the build context (Hugging Face Space root) contains:
-# src/streamlit_app.py, requirements.txt
 COPY --chown=user src/ ./src/
-COPY --chown=user requirements.txt .
 
-# Install Python dependencies listed in requirements.txt
+# Install llama-cpp-python specifically for CPU (assuming a CPU-only Space)
+# This is done separately to ensure it's built correctly without CUDA dependencies if not available.
+RUN pip install llama-cpp-python==0.1.85 --force-reinstall --no-cache-dir CMAKE_ARGS="-DLLAMA_CUBLAS=off"
+
+# Copy and install other Python dependencies listed in requirements.txt
+COPY --chown=user requirements.txt .
 RUN pip3 install -r requirements.txt
 
 # Define the command to run the Streamlit app on port "8501" and make it accessible externally
