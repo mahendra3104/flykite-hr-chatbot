@@ -5,7 +5,11 @@ FROM python:3.9
 WORKDIR /app
 
 # Copy all files from the current directory on the host to the container's /app directory
+# This includes app.py, requirements.txt, and the data folder
 COPY . .
+
+# Explicitly copy the data folder to ensure it's present (redundant but can help with specific build environments)
+COPY --chown=user airline_project/deployment/data /app/data
 
 # Install Python dependencies listed in requirements.txt
 RUN pip3 install -r requirements.txt
