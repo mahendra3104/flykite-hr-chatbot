@@ -1,0 +1,32 @@
+# .github/workflows/deploy.yml
+name: Flykite HR Chatbot Deployment to Hugging Face
+
+on:
+  push:
+    branches:
+      - main # Trigger this workflow when changes are pushed to the main branch
+
+jobs:
+  deploy-to-hf-space:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Prepare files for Hugging Face Space
+        run: |
+          echo "Ensuring deployment files (src/, data/, Dockerfile, requirements.txt) are at the root or correctly structured for Hugging Face Space to pick up."
+          echo "The Python script in your notebook (cell 87774a32) handles pushing these files to the GitHub repository."
+
+      - name: Validate presence of key deployment files (Optional)
+        run: |
+          ls -l src/streamlit_app.py || echo "src/streamlit_app.py not found in repo root"
+          ls -l requirements.txt || echo "requirements.txt not found in repo root"
+          ls -l Dockerfile || echo "Dockerfile not found in repo root"
+          ls -l data/Dataset\ -\ Flykite\ Airlines_\ HRP.pdf || echo "data/Dataset - Flykite Airlines_ HRP.pdf not found in repo root"
+
+      - name: Deployment Information
+        run: |
+          echo "This workflow implicitly triggers Hugging Face Space (Mahendra-ML/flykite-hr-chatbot) deployment"
+          echo "because the Space is linked to this GitHub repository (Mahendra-ML/flykite-hr-chatbot)."
+          echo "Any push to 'main' should automatically initiate a rebuild on Hugging Face Spaces."
