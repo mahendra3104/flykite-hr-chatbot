@@ -14,34 +14,31 @@ from llama_cpp import Llama
 
 st.set_page_config(page_title="Flykite Airlines HR Assistant", layout="wide")
 
-st.info("Initializing Streamlit app...")
-
 @st.cache_resource
 def load_embedding_model():
-    st.info("Loading embedding model...")
     return SentenceTransformerEmbeddings(model_name='thenlper/gte-large')
 
 @st.cache_resource
 def load_vector_store(embedding_model):
-    st.info("Loading vector store...")
+    # Define the Hugging Face Dataset repo ID and filename
     hf_dataset_repo_id = "Mahendra-ML/airline"
     pdf_filename = "Dataset - Flykite Airlines_ HRP.pdf"
-
-    st.info(f"Downloading PDF from Hugging Face Dataset: {hf_dataset_repo_id}/{pdf_filename}")
+    
+    # Download the PDF from Hugging Face Datasets
     downloaded_pdf_path = hf_hub_download(
         repo_id=hf_dataset_repo_id,
         filename=pdf_filename,
-        repo_type="dataset",
-        cache_dir=".",
+        repo_type="dataset", # Specify repo_type as 'dataset'
+        cache_dir=".", # Cache within the current directory
         local_dir_use_symlinks=False
     )
-    st.info(f"PDF downloaded to: {downloaded_pdf_path}")
 
+    # Use the downloaded PDF path
     pdf_path = downloaded_pdf_path
     out_dir = 'vector_db'
 
     if not os.path.exists(out_dir):
-        st.info("Vector DB directory not found. Creating from PDF...")
+        # If vector_db doesn't exist, create it from the PDF
         pdf_loader = PyMuPDFLoader(pdf_path)
         text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
             encoding_name='cl100k_base',
@@ -54,35 +51,23 @@ def load_vector_store(embedding_model):
             embedding=embedding_model,
             persist_directory=out_dir
         )
-        vectordb.persist()
-        st.info("Vector DB created and persisted.")
-    else:
-        st.info("Vector DB directory found. Loading existing vector store.")
+        vectordb.persist() # Ensure persistence after creation
 
+    # Load the vector store (it will load if it exists, or use the newly created one)
     return Chroma(persist_directory=out_dir, embedding_function=embedding_model)
 
 @st.cache_resource
 def load_llm():
-    st.info("Loading LLM...")
     model_name_or_path = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF"
     model_basename = "mistral-7b-instruct-v0.2.Q6_K.gguf"
-    
-    st.info(f"Downloading LLM from Hugging Face Hub: {model_name_or_path}/{model_basename}")
     model_path = hf_hub_download(
         repo_id=model_name_or_path,
         filename=model_basename
     )
-    st.info(f"LLM downloaded to: {model_path}")
-
-    # Check if GPU is available and set n_gpu_layers accordingly
-    # Note: For llama-cpp-python CPU build, n_gpu_layers should be 0.
-    # The Dockerfile now forces a CPU build for llama-cpp-python.
-    n_gpu_layers = 0 # Explicitly set to 0 for CPU build
-    st.info(f"Initializing Llama model with n_gpu_layers={n_gpu_layers}")
     return Llama(
         model_path=model_path,
         n_ctx=5000,
-        n_gpu_layers=n_gpu_layers,
+        n_gpu_layers=-1 if torch.cuda.is_available() else 0, # Use all GPU layers if available
         n_batch=512
     )
 
@@ -90,12 +75,11 @@ def load_llm():
 embedding_model = load_embedding_model()
 vectorstore = load_vector_store(embedding_model)
 llm = load_llm()
-st.success("All models and vector store loaded successfully!")
 
 # Retriever
 retriever = vectorstore.as_retriever(
     search_type='similarity',
-    search_kwargs={'k': 3}
+    search_kwargs={'k': 3} # Using k=3 as it performed well in tuning
 )
 
 # QnA System Message (from notebook)
@@ -120,8 +104,10 @@ Here are some documents that are relevant to the question mentioned below.
 """
 
 def generate_rag_response(user_input, user_role="General Employee", k=3, max_tokens=200, temperature=0.1, top_p=0.9, top_k=40):
+    # Retrieve relevant document chunks
     relevant_document_chunks = retriever.get_relevant_documents(query=user_input)
-    
+
+    # Combine document chunks with page numbers into a single context
     context_with_sources = []
     for i, d in enumerate(relevant_document_chunks):
         context_with_sources.append(f"{d.page_content} [Page {d.metadata['page'] + 1}]")
@@ -133,6 +119,7 @@ def generate_rag_response(user_input, user_role="General Employee", k=3, max_tok
 
     prompt = qna_system_message + '\n' + user_message
 
+    # Generate the response
     try:
         response = llm(
                   prompt=prompt,
@@ -142,9 +129,10 @@ def generate_rag_response(user_input, user_role="General Employee", k=3, max_tok
                   top_k=top_k
                   )
 
+        # Extract and print the model's response
         response = response['choices'][0]['text'].strip()
     except Exception as e:
-        response = f'Sorry, I encountered the following error while generating response: \n {e}'
+        response = f'Sorry, I encountered the following error: \n {e}'
 
     return response
 
@@ -155,7 +143,7 @@ st.write("Hello! I am your AI HR Assistant for Flykite Airlines. Ask me anything
 user_question = st.text_input("Your Question:", "What are the effects on the benefits I receive if my probation is extended?")
 user_role = st.selectbox("Your Role:", ["General Employee", "Pilot", "Manager", "HR Staff"], index=0)
 
-if st.button("Get Answer"):
+if st.button("Get Answer"): # Updated to a button for explicit action
     with st.spinner("Fetching your answer..."):
         rag_answer = generate_rag_response(user_question, user_role=user_role)
         st.markdown(f"**HR Assistant:** {rag_answer}")
